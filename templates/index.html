@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Financeiro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div>
+       <header>
+        <h1>Controle Financeiro</h1>
+        <div class="header-actions">
+            <button id="btnAlternarTema" class="btn-theme" title="Alternar Tema">🌙</button>
+            <button id="btnAbrir" class="btn-abrir-modal">+ Nova Transação</button>
+        </div>
+    </header>
+
+    <div id="modalTransacao" class="modal">
+        <div class="modal-content">
+            <span class="btn-fechar" onclick="fecharModais()">&times;</span>
+            <h2>Adicionar Transação</h2>
+            <form action="/adicionar" method="POST" onsubmit="mostrarLoading(this)">
+                <input type="text" name="descricao" placeholder="Descrição (ex: Salário, Aluguel)" required>
+                <input type="number" step="0.01" name="valor" placeholder="Valor (R$)" required>
+                <select name="tipo">
+                    <option value="receita">Receita</option>
+                    <option value="despesa">Despesa</option>
+                </select>
+                <input type="text" name="categoria" placeholder="Categoria (ex: Alimentação, Moradia)" required>
+                <button type="submit" class="btn-salvar">Salvar Transação</button>
+            </form>
+        </div>
+    </div>
+
+
+        <div class="container">
+            <h2>Histórico de Transações</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Valor (R$)</th>
+                        <th>Tipo</th>
+                        <th>Categoria</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transacoes %}
+                    <tr>
+                        <td>{{ t.descricao }}</td>
+                        <td>R$ {{ "%.2f"|format(t.valor) }}</td>
+                        <td>{{ t.tipo.capitalize() }}</td>
+                        <td>{{ t.categoria }}</td>
+                        <td>
+                        <button class="btn-acao btn-editar" 
+                            onclick="abrirModalEditar('{{ t.id }}', '{{ t.descricao }}', '{{ t.valor }}', '{{ t.tipo }}', '{{ t.categoria }}')">
+                            Editar
+                        </button>
+                        <button class="btn-acao btn-excluir" 
+                            onclick="abrirModalExcluir('{{ t.id }}', '{{ t.descricao }}')">
+                            Excluir
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center;">Nenhuma transação cadastrada ainda.</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Seção do Dashboard -->
+            <h2>Dashboard Financeiro</h2>
+            <div class="dashboard-grid">
+                <div class="card-chart">
+                    <h3>Receitas por Categoria</h3>
+                    <canvas id="chartReceitas"></canvas>
+                </div>
+                <div class="card-chart">
+                    <h3>Despesas por Categoria</h3>
+                    <canvas id="chartDespesas"></canvas>
+                </div>
+                <div class="card-chart full-width">
+                    <h3>Balanço Geral</h3>
+                    <canvas id="chartBalanço"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. Modal de Adicionar Transação -->
+    <div id="modalTransacao" class="modal">
+        <div class="modal-content">
+            <span class="btn-fechar" onclick="fecharModais()">&times;</span>
+            <h2>Adicionar Transação</h2>
+            <form action="/adicionar" method="POST" onsubmit="mostrarLoading(this)">>
+                <input type="text" name="descricao" placeholder="Descrição (ex: Salário)" required>
+                <input type="number" step="0.01" name="valor" placeholder="Valor (R$)" required>
+                <select name="tipo">
+                    <option value="receita">Receita</option>
+                    <option value="despesa">Despesa</option>
+                </select>
+                <input type="text" name="categoria" placeholder="Categoria" required>
+                <button type="submit" class="btn-salvar">Salvar Transação</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. Modal de Editar Transação -->
+    <div id="modalEditar" class="modal">
+        <div class="modal-content">
+            <span class="btn-fechar" onclick="fecharModais()">&times;</span>
+            <h2>Editar Transação</h2>
+            <form id="formEditar" method="POST" onsubmit="mostrarLoading(this)">>
+                <input type="text" id="editDescricao" name="descricao" required>
+                <input type="number" step="0.01" id="editValor" name="valor" required>
+                <select id="editTipo" name="tipo">
+                    <option value="receita">Receita</option>
+                    <option value="despesa">Despesa</option>
+                </select>
+                <input type="text" id="editCategoria" name="categoria" required>
+                <button type="submit" class="btn-salvar">Atualizar Transação</button>
+            </form>
+        </div>
+    </div>
+
+        <!-- 3. Modal de Confirmação de Exclusão -->
+        <div id="modalExcluir" class="modal">
+            <div class="modal-content modal-center">
+                <span class="btn-fechar" onclick="fecharModais()">&times;</span>
+                <h2 class="text-danger">Confirmar Exclusão</h2>
+                <p class="text-muted">Tem certeza que deseja excluir a transação: <strong id="excluirNome"></strong>?</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancelar" onclick="fecharModais()">Cancelar</button>
+                    <a id="linkConfirmarExclusao" href="#" class="btn-confirmar-excluir" onclick="ativarLoadingExclusao(this)">Sim, Excluir</a>
+                </div>
+            </div>
+        </div>
+    </div>
+        <!-- Indicador de Loading Global Flutuante -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processando...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
